@@ -1,23 +1,22 @@
-import logo from './logo.svg';
-import './App.css';
+import { useState } from "react";
+import BarChart from "./components/bar_chart";
+import ScatterPlot from "./components/scatter_plot";
+import GeovisFilter from "./components/geovis_filter";
 
 function App() {
+  const [view, setView] = useState("bar");
+
   return (
-    <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.js</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
+    <div>
+      <select onChange={(e) => setView(e.target.value)}>
+        <option value="bar">Bar Chart</option>
+        <option value="scatter">Scatter Plot</option>
+        <option value="geo">Geographical Visualization</option>
+      </select>
+
+      {view === "bar" && <BarChart />}
+      {view === "scatter" && <ScatterPlot />}
+      {view === "geo" && <GeovisFilter />}
     </div>
   );
 }
