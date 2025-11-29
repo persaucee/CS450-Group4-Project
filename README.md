@@ -50,6 +50,7 @@ Goal: Understand whether superhosts charge more, and whether weekend pricing var
 | 18-20 | Topic + dataset selection | ✔ Completed | All |
 | 20-22 | Visualization Selection | ✔ Completed | All |
 | 23-30 | Initial visualization drafts | ⚙ In Progress | All |
-| 1-8 | Story Integration | ⏳ Upcoming | All |
-| 9-16 | Finalize | Upcoming | All |
+| 1-8 | Finalize visualization | ⏳ Upcoming | All |
+| 9-13 | Story Integration | Upcoming | All |
+| 13-16 | Finalize for submission | Upcoming | All |
 
