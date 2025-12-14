@@ -1,49 +1,59 @@
 import React, { useEffect, useRef, useState } from 'react';
 import * as d3 from 'd3';
 
+const cities = ['amsterdam', 'athens', 'barcelona', 'berlin', 'budapest', 
+                'lisbon', 'london', 'paris', 'rome', 'vienna'];
+
 const ValueMatrix = () => {
   const svgRef = useRef();
-  const [data, setData] = useState([]);
+  const [allCitiesData, setAllCitiesData] = useState({});
+  const [selectedCity, setSelectedCity] = useState('amsterdam');
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const loadData = async () => {
-      const weekdaysPath = "/data/amsterdam_weekdays.csv";
-      const weekendsPath = "/data/amsterdam_weekends.csv";
-      
-      const weekdaysResponse = await fetch(weekdaysPath);
-      const weekdaysText = await weekdaysResponse.text();
-      
-      const weekendsResponse = await fetch(weekendsPath);
-      const weekendsText = await weekendsResponse.text();
-      
-      const parsedWeekdays = d3.csvParse(weekdaysText, d => ({
-        price: +d.realSum,
-        satisfaction: +d.guest_satisfaction_overall,
-        roomType: d.room_type,
-        bedrooms: +d.bedrooms || 1,
-        isSuperhost: d.host_is_superhost === 'True',
-        distance: +d.dist || 0
-      }));
+      const citiesData = {};
 
-      const parsedWeekends = d3.csvParse(weekendsText, d => ({
-        price: +d.realSum,
-        satisfaction: +d.guest_satisfaction_overall,
-        roomType: d.room_type,
-        bedrooms: +d.bedrooms || 1,
-        isSuperhost: d.host_is_superhost === 'True',
-        distance: +d.dist || 0
-      }));
+      for (const city of cities) {
+        const weekdaysPath = `/data/${city}_weekdays.csv`;
+        const weekendsPath = `/data/${city}_weekends.csv`;
+        
+        const weekdaysResponse = await fetch(weekdaysPath);
+        const weekdaysText = await weekdaysResponse.text();
+        
+        const weekendsResponse = await fetch(weekendsPath);
+        const weekendsText = await weekendsResponse.text();
+        
+        const parsedWeekdays = d3.csvParse(weekdaysText, d => ({
+          price: +d.realSum,
+          satisfaction: +d.guest_satisfaction_overall,
+          roomType: d.room_type,
+          bedrooms: +d.bedrooms || 1,
+          isSuperhost: d.host_is_superhost === 'True',
+          distance: +d.dist || 0
+        }));
 
-      const allData = [...parsedWeekdays, ...parsedWeekends];
+        const parsedWeekends = d3.csvParse(weekendsText, d => ({
+          price: +d.realSum,
+          satisfaction: +d.guest_satisfaction_overall,
+          roomType: d.room_type,
+          bedrooms: +d.bedrooms || 1,
+          isSuperhost: d.host_is_superhost === 'True',
+          distance: +d.dist || 0
+        }));
 
-      const validData = allData.filter(d => 
-        !isNaN(d.price) && !isNaN(d.satisfaction) && 
-        d.price > 0 && d.satisfaction > 0 &&
-        d.price <= 2000 && d.satisfaction >= 60 && d.satisfaction <= 100
-      );
+        const allData = [...parsedWeekdays, ...parsedWeekends];
 
-      setData(validData);
+        const validData = allData.filter(d => 
+          !isNaN(d.price) && !isNaN(d.satisfaction) && 
+          d.price > 0 && d.satisfaction > 0 &&
+          d.price <= 1600 && d.satisfaction >= 60 && d.satisfaction <= 100
+        );
+
+        citiesData[city] = validData;
+      }
+
+      setAllCitiesData(citiesData);
       setLoading(false);
     };
 
@@ -51,9 +61,15 @@ const ValueMatrix = () => {
   }, []);
 
   useEffect(() => {
-    if (!data || loading || data.length === 0) return;
+    if (!allCitiesData[selectedCity] || loading) return;
+
+    const data = allCitiesData[selectedCity];
+    if (data.length === 0) return;
 
     const renderChart = () => {
+      // Sample data for display (40% random sample)
+      const displayData = data.filter(() => Math.random() < 0.4);
+      
       const margin = { top: 60, right: 200, bottom: 80, left: 80 };
       const width = 900 - margin.left - margin.right;
       const height = 600 - margin.top - margin.bottom;
@@ -82,12 +98,12 @@ const ValueMatrix = () => {
 
       
       const xScale = d3.scaleLinear()
-        .domain([0, 2000])
+        .domain([0, 1600])
         .range([0, width])
         .nice();
 
       const yScale = d3.scaleLinear()
-        .domain([60, 100])
+        .domain([50, 100])
         .range([height, 0])
         .nice();
 
@@ -96,8 +112,8 @@ const ValueMatrix = () => {
         .range(['#3498db', '#2ecc71', '#f1c40f']);
 
       // Calculate midpoints for symmetrical reference lines
-      const midPrice = 1000;
-      const midSatisfaction = 80;
+      const midPrice = 800;  // Half of 1600
+      const midSatisfaction = 75;
 
       // Reference lines at midpoints
       svg.append('line')
@@ -120,7 +136,7 @@ const ValueMatrix = () => {
 
       // Draw circles
       svg.selectAll('circle')
-        .data(data)
+        .data(displayData)
         .join('circle')
         .attr('cx', d => xScale(d.price))
         .attr('cy', d => yScale(d.satisfaction))
@@ -197,7 +213,7 @@ const ValueMatrix = () => {
         .attr('text-anchor', 'middle')
         .style('font-size', '18px')
         .style('font-weight', 'bold')
-        .text('Value Matrix: Price vs Guest Satisfaction');
+        .text(`Value Matrix: ${selectedCity.charAt(0).toUpperCase() + selectedCity.slice(1)} - Price vs Guest Satisfaction`);
 
       // Legend
       const legend = svg.append('g')
@@ -253,11 +269,36 @@ const ValueMatrix = () => {
     };
 
     requestAnimationFrame(renderChart);
-  }, [data, loading]);
+  }, [allCitiesData, selectedCity, loading]);
 
   return (
-    <div style={{ padding: '20px', display: 'flex', justifyContent: 'center' }}>
-      <svg ref={svgRef}></svg>
+    <div style={{ padding: '20px' }}>
+      <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '20px' }}>
+        <label htmlFor="city-select" style={{ marginRight: '10px', fontWeight: 'bold', fontSize: '16px' }}>
+          Select City:
+        </label>
+        <select
+          id="city-select"
+          value={selectedCity}
+          onChange={(e) => setSelectedCity(e.target.value)}
+          style={{
+            padding: '8px 12px',
+            fontSize: '14px',
+            borderRadius: '5px',
+            border: '1px solid #ccc',
+            cursor: 'pointer'
+          }}
+        >
+          {cities.map(city => (
+            <option key={city} value={city}>
+              {city.charAt(0).toUpperCase() + city.slice(1)}
+            </option>
+          ))}
+        </select>
+      </div>
+      <div style={{ display: 'flex', justifyContent: 'center' }}>
+        <svg ref={svgRef}></svg>
+      </div>
     </div>
   );
 };
