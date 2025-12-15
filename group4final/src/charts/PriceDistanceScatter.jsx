@@ -1,6 +1,7 @@
 import * as d3 from "d3";
 import React, { Component, useState } from "react";
 
+
 const CITIES = [
   "Amsterdam",
   "Athens",
@@ -13,6 +14,7 @@ const CITIES = [
   "Rome",
   "Vienna"
 ];
+
 
 class PriceDistanceLine extends Component {
   constructor(props) {
@@ -35,7 +37,6 @@ class PriceDistanceLine extends Component {
   }
 
   loadData(fileName) {
-    //create the filename based off the click from the dashboard
     this.setState({ loading: true });
     const csvPath = process.env.PUBLIC_URL + "/data/" + fileName;
 
@@ -74,9 +75,7 @@ class PriceDistanceLine extends Component {
   }
 
   drawChart(data) {
-
     const svg = d3.select(this.svgRef.current);
-
     const width = 900;
     const height = 500;
     const margin = { left: 60, right: 40, top: 50, bottom: 60 };
@@ -150,7 +149,7 @@ class PriceDistanceLine extends Component {
     const lineGenerator = d3.line()
       .x((d) => xScale(d.dist))
       .y((d) => yScale(d.avgPrice))
-      .curve(d3.curveCardinal);
+      .curve(d3.curveCardinal); 
 
     innerChart.append("path")
       .datum(data)
@@ -200,41 +199,57 @@ class PriceDistanceLine extends Component {
   }
 }
 
+
 const Dashboard = () => {
   const [selectedCity, setSelectedCity] = useState("Amsterdam");
   const [isWeekend, setIsWeekend] = useState(false); 
 
   const fileName = `${selectedCity.toLowerCase()}_${isWeekend ? 'weekends' : 'weekdays'}.csv`;
 
+  
   const containerStyle = {
-    display: "flex",
     fontFamily: "'Segoe UI', Roboto, Helvetica, Arial, sans-serif",
-    height: "100vh",
-    margin: 0
+    maxWidth: "1000px",
+    margin: "0 auto",
+    padding: "40px 20px"
   };
 
-  const sidebarStyle = {
-    width: "260px",
-    background: "#f8f9fa",
-    borderRight: "1px solid #dee2e6",
-    padding: "20px",
+  const headerStyle = {
     display: "flex",
-    flexDirection: "column",
-    gap: "10px",
-    overflowY: "auto"
+    flexWrap: "wrap",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: "30px",
+    gap: "20px"
   };
 
+  const controlsStyle = {
+    display: "flex",
+    alignItems: "center",
+    gap: "15px"
+  };
+
+
+  const selectStyle = {
+    padding: "10px 15px",
+    fontSize: "16px",
+    borderRadius: "6px",
+    border: "1px solid #ccc",
+    backgroundColor: "white",
+    cursor: "pointer",
+    minWidth: "160px"
+  };
+
+ 
   const toggleContainerStyle = {
     display: "flex",
     background: "#e9ecef",
     padding: "4px",
-    borderRadius: "8px",
-    marginBottom: "15px"
+    borderRadius: "8px"
   };
 
   const toggleBtnStyle = (active) => ({
-    flex: 1,
-    padding: "8px",
+    padding: "8px 16px",
     border: "none",
     background: active ? "white" : "transparent",
     color: active ? "black" : "#6c757d",
@@ -245,60 +260,44 @@ const Dashboard = () => {
     transition: "all 0.2s"
   });
 
-  const cityBtnStyle = (city) => ({
-    padding: "12px 15px",
-    textAlign: "left",
-    border: "none",
-    background: selectedCity === city ? "#007bff" : "transparent",
-    color: selectedCity === city ? "white" : "#495057",
-    cursor: "pointer",
-    borderRadius: "6px",
-    fontWeight: selectedCity === city ? "600" : "400",
-    fontSize: "15px",
-    transition: "background 0.2s"
-  });
-
   return (
     <div style={containerStyle}>
-      <div style={sidebarStyle}>
-        <h3 style={{ margin: "0 0 15px 0", color: "#343a40" }}>AirBnb</h3>
-        <div style={toggleContainerStyle}>
-          <button style={toggleBtnStyle(!isWeekend)} onClick={() => setIsWeekend(false)}>
-            Weekdays
-          </button>
-          <button style={toggleBtnStyle(isWeekend)} onClick={() => setIsWeekend(true)}>
-            Weekends
-          </button>
+     
+      <div style={headerStyle}>
+        <div>
+           <h2 style={{ margin: "0 0 5px 0", color: "#343a40" }}>AirBnb Prices</h2>
+           <p style={{ margin: 0, color: "#6c757d" }}>
+             Analyzing price trends vs distance
+           </p>
         </div>
 
-        <div style={{ borderBottom: "1px solid #dee2e6", marginBottom: "10px" }}></div>
-        <div style={{ fontSize: "11px", color: "#adb5bd", fontWeight: "bold", letterSpacing: "1px", marginBottom: "5px" }}>
-          SELECT CITY
-        </div>
-        <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
-          {CITIES.map((city) => (
-            <button
-              key={city}
-              style={cityBtnStyle(city)}
-              onClick={() => setSelectedCity(city)}
-            >
-              {city}
+        <div style={controlsStyle}>
+         
+          <select 
+            value={selectedCity} 
+            onChange={(e) => setSelectedCity(e.target.value)}
+            style={selectStyle}
+          >
+            {CITIES.map((city) => (
+              <option key={city} value={city}>{city}</option>
+            ))}
+          </select>
+
+
+          <div style={toggleContainerStyle}>
+            <button style={toggleBtnStyle(!isWeekend)} onClick={() => setIsWeekend(false)}>
+              Weekdays
             </button>
-          ))}
+            <button style={toggleBtnStyle(isWeekend)} onClick={() => setIsWeekend(true)}>
+              Weekends
+            </button>
+          </div>
         </div>
       </div>
 
-      <div style={{ flex: 1, padding: "40px", overflowY: "auto" }}>
-        <h2 style={{ marginBottom: "5px" }}>
-          {selectedCity} <span style={{ fontWeight: "lighter", color: "#6c757d" }}>
-            ({isWeekend ? "Weekends" : "Weekdays"})
-          </span>
-        </h2>
-        <p style={{ color: "#6c757d", marginTop: 0, marginBottom: "30px" }}>
-          Analysis of average rental prices based on distance from the city center.
-        </p>
-
-        <PriceDistanceLine key={fileName} fileName={fileName} />
+      {/* Chart */}
+      <div style={{ display: "flex", justifyContent: "center" }}>
+         <PriceDistanceLine key={fileName} fileName={fileName} />
       </div>
     </div>
   );
