@@ -1,80 +1,307 @@
-import { useEffect, useState } from "react";
-import Plot from "react-plotly.js";
+import * as d3 from "d3";
+import React, { Component, useState } from "react";
 
-const PriceDistanceScatter = () => {
-  const [data, setData] = useState([]);
+const CITIES = [
+  "Amsterdam",
+  "Athens",
+  "Barcelona",
+  "Berlin",
+  "Budapest",
+  "Lisbon",
+  "London",
+  "Paris",
+  "Rome",
+  "Vienna"
+];
 
-  useEffect(() => {
-    const csvPath = process.env.PUBLIC_URL + "/data/amsterdam_weekdays.csv";
+class PriceDistanceLine extends Component {
+  constructor(props) {
+    super(props);
+    this.state = {
+      data: [],
+      loading: true
+    };
+    this.svgRef = React.createRef();
+  }
 
-    fetch(csvPath)
-      .then((res) => res.text())
-      .then((text) => {
-        const lines = text.trim().split("\n");
+  componentDidMount() {
+    this.loadData(this.props.fileName);
+  }
 
-        // parse data from csv
-        const rawHeader = lines[0].split(",");
-        const header = rawHeader.slice(1).map((h) => h.trim()); 
-        console.log("HEADER:", header);
-        const realSumIndex = header.indexOf("realSum");
-        const distIndex = header.indexOf("dist");
-        console.log("Indices:", { realSumIndex, distIndex });
-        const parsedRows = [];
-        for (let i = 1; i < lines.length; i++) {
-          const cols = lines[i].split(",").map((c) => c.trim());
-          const cleanCols = cols.slice(1);
+  componentDidUpdate(prevProps) {
+    if (prevProps.fileName !== this.props.fileName) {
+      this.loadData(this.props.fileName);
+    }
+  }
 
-          const price = parseFloat(cleanCols[realSumIndex]);
-          const dist = parseFloat(cleanCols[distIndex]);
+  loadData(fileName) {
+    //create the filename based off the click from the dashboard
+    this.setState({ loading: true });
+    const csvPath = process.env.PUBLIC_URL + "/data/" + fileName;
 
-          if (!isNaN(price) && !isNaN(dist)) {
-            parsedRows.push({ price, dist });
-          }
+    d3.csv(csvPath)
+      .then((rawRows) => {
+        const parsedData = rawRows
+          .map((d) => ({
+            price: parseFloat(d.realSum),
+            dist: parseFloat(d.dist),
+          }))
+          .filter((d) => !isNaN(d.price) && d.price > 0 && !isNaN(d.dist) && d.dist <= 7);
+
+        const binSize = 0.5;
+        const binnedMap = d3.rollup(
+          parsedData,
+          (v) => d3.mean(v, (d) => d.price),
+          (d) => Math.floor(d.dist / binSize) * binSize
+        );
+
+        const binnedData = Array.from(binnedMap, ([dist, avgPrice]) => ({
+          dist,
+          avgPrice,
+        })).sort((a, b) => a.dist - b.dist);
+
+        this.setState({ data: binnedData, loading: false });
+        this.drawChart(binnedData);
+      })
+      .catch((err) => {
+        console.error("Could not load file:", fileName, err);
+        this.setState({ loading: false, data: [] });
+    
+        if (this.svgRef.current) {
+            d3.select(this.svgRef.current).selectAll("*").remove();
         }
-        console.log("Parsed sample:", parsedRows.slice(0, 20));
-        setData(parsedRows);
       });
-  }, []);
+  }
+
+  drawChart(data) {
+
+    const svg = d3.select(this.svgRef.current);
+
+    const width = 900;
+    const height = 500;
+    const margin = { left: 60, right: 40, top: 50, bottom: 60 };
+    const innerWidth = width - margin.left - margin.right;
+    const innerHeight = height - margin.top - margin.bottom;
+
+    svg.attr("width", width).attr("height", height);
+    svg.selectAll("*").remove();
+
+    if (data.length === 0) {
+      svg.append("text")
+        .attr("x", width / 2)
+        .attr("y", height / 2)
+        .attr("text-anchor", "middle")
+        .style("fill", "#666")
+        .text("No data found or file missing.");
+      return;
+    }
+
+    const innerChart = svg.append("g")
+      .attr("transform", `translate(${margin.left}, ${margin.top})`);
+
+    d3.select(".chart-tooltip").remove();
+    const tooltip = d3.select("body").append("div")
+      .attr("class", "chart-tooltip")
+      .style("position", "absolute")
+      .style("background", "rgba(0,0,0,0.8)")
+      .style("color", "white")
+      .style("padding", "8px")
+      .style("border-radius", "4px")
+      .style("font-size", "12px")
+      .style("pointer-events", "none")
+      .style("display", "none")
+      .style("z-index", "1000");
+
+    const xScale = d3.scaleLinear()
+      .domain([0, 7])
+      .range([0, innerWidth]);
+
+    const yScale = d3.scaleLinear()
+      .domain([0, d3.max(data, (d) => d.avgPrice) * 1.1])
+      .range([innerHeight, 0]);
+
+    const xAxisGenerator = d3.axisBottom(xScale);
+    const yAxisGenerator = d3.axisLeft(yScale)
+      .ticks(10)
+      .tickFormat((d) => "€" + d3.format("~s")(d));
+
+    innerChart.append("g")
+      .attr("transform", `translate(0, ${innerHeight})`)
+      .call(xAxisGenerator);
+
+    innerChart.append("g")
+      .call(yAxisGenerator);
+
+    innerChart.append("text")
+      .attr("x", innerWidth / 2)
+      .attr("y", innerHeight + 40)
+      .style("text-anchor", "middle")
+      .style("font-size", "14px")
+      .text("Distance from City Center (km)");
+
+    innerChart.append("text")
+      .attr("transform", "rotate(-90)")
+      .attr("x", -innerHeight / 2)
+      .attr("y", -45)
+      .style("text-anchor", "middle")
+      .style("font-size", "14px")
+      .text("Average Price (EUR)");
+
+    const lineGenerator = d3.line()
+      .x((d) => xScale(d.dist))
+      .y((d) => yScale(d.avgPrice))
+      .curve(d3.curveCardinal);
+
+    innerChart.append("path")
+      .datum(data)
+      .attr("fill", "none")
+      .attr("stroke", "#007bff")
+      .attr("stroke-width", 3)
+      .attr("d", lineGenerator);
+
+    innerChart.selectAll("circle")
+      .data(data)
+      .join("circle")
+      .attr("cx", (d) => xScale(d.dist))
+      .attr("cy", (d) => yScale(d.avgPrice))
+      .attr("r", 6)
+      .attr("fill", "white")
+      .attr("stroke", "#007bff")
+      .attr("stroke-width", 2)
+      .style("cursor", "pointer")
+      .on("mouseover", (event, d) => {
+        tooltip.style("display", "block").html(`
+          <strong>Distance:</strong> ${d.dist} - ${d.dist + 0.5} km<br/>
+          <strong>Avg Price:</strong> €${Math.round(d.avgPrice)}
+        `);
+        d3.select(event.currentTarget).attr("fill", "#007bff");
+      })
+      .on("mousemove", (event) => {
+        tooltip
+          .style("left", (event.pageX + 15) + "px")
+          .style("top", (event.pageY - 15) + "px");
+      })
+      .on("mouseout", (event) => {
+        tooltip.style("display", "none");
+        d3.select(event.currentTarget).attr("fill", "white");
+      });
+  }
+
+  render() {
+    return (
+      <div style={{ padding: 20 }}>
+        {this.state.loading && <p style={{ color: "#888" }}>Loading data...</p>}
+        <svg 
+          ref={this.svgRef} 
+          style={{ background: "#fafafa", border: "1px solid #eee", borderRadius: "8px" }}
+        ></svg>
+      </div>
+    );
+  }
+}
+
+const Dashboard = () => {
+  const [selectedCity, setSelectedCity] = useState("Amsterdam");
+  const [isWeekend, setIsWeekend] = useState(false); 
+
+  const fileName = `${selectedCity.toLowerCase()}_${isWeekend ? 'weekends' : 'weekdays'}.csv`;
+
+  const containerStyle = {
+    display: "flex",
+    fontFamily: "'Segoe UI', Roboto, Helvetica, Arial, sans-serif",
+    height: "100vh",
+    margin: 0
+  };
+
+  const sidebarStyle = {
+    width: "260px",
+    background: "#f8f9fa",
+    borderRight: "1px solid #dee2e6",
+    padding: "20px",
+    display: "flex",
+    flexDirection: "column",
+    gap: "10px",
+    overflowY: "auto"
+  };
+
+  const toggleContainerStyle = {
+    display: "flex",
+    background: "#e9ecef",
+    padding: "4px",
+    borderRadius: "8px",
+    marginBottom: "15px"
+  };
+
+  const toggleBtnStyle = (active) => ({
+    flex: 1,
+    padding: "8px",
+    border: "none",
+    background: active ? "white" : "transparent",
+    color: active ? "black" : "#6c757d",
+    fontWeight: active ? "600" : "400",
+    borderRadius: "6px",
+    cursor: "pointer",
+    boxShadow: active ? "0 2px 4px rgba(0,0,0,0.05)" : "none",
+    transition: "all 0.2s"
+  });
+
+  const cityBtnStyle = (city) => ({
+    padding: "12px 15px",
+    textAlign: "left",
+    border: "none",
+    background: selectedCity === city ? "#007bff" : "transparent",
+    color: selectedCity === city ? "white" : "#495057",
+    cursor: "pointer",
+    borderRadius: "6px",
+    fontWeight: selectedCity === city ? "600" : "400",
+    fontSize: "15px",
+    transition: "background 0.2s"
+  });
 
   return (
-    <div style={{ padding: 30 }}>
-      <Plot
-  data={[
-    {
-      x: data.map((d) => d.dist),
-      y: data.map((d) => d.price),
-      mode: "markers",
-      type: "scatter",
-      marker: {
-        size: 4,         // smaller points
-        opacity: 0.5,    // less overlap
-        color: "#1f77b4"
-      },
-      text: data.map(
-        (d) => `Price: €${d.price}<br>Distance: ${d.dist} km`
-      ),
-      hoverinfo: "text",
-    },
-  ]}
-  layout={{
-    title: "Price vs Distance from City Center (Log Scale for Clarity)",
-    xaxis: {
-      title: "Distance from City Center (km)",
-      zeroline: false,
-    },
-    yaxis: {
-      title: "Price (EUR)",
-      type: "log",          // <-- GAME CHANGER
-      autorange: true,
-      zeroline: false,
-    },
-    height: 650,
-    margin: { t: 80, l: 80, r: 40, b: 80 },
-  }}
-/>
+    <div style={containerStyle}>
+      <div style={sidebarStyle}>
+        <h3 style={{ margin: "0 0 15px 0", color: "#343a40" }}>AirBnb</h3>
+        <div style={toggleContainerStyle}>
+          <button style={toggleBtnStyle(!isWeekend)} onClick={() => setIsWeekend(false)}>
+            Weekdays
+          </button>
+          <button style={toggleBtnStyle(isWeekend)} onClick={() => setIsWeekend(true)}>
+            Weekends
+          </button>
+        </div>
 
+        <div style={{ borderBottom: "1px solid #dee2e6", marginBottom: "10px" }}></div>
+        <div style={{ fontSize: "11px", color: "#adb5bd", fontWeight: "bold", letterSpacing: "1px", marginBottom: "5px" }}>
+          SELECT CITY
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+          {CITIES.map((city) => (
+            <button
+              key={city}
+              style={cityBtnStyle(city)}
+              onClick={() => setSelectedCity(city)}
+            >
+              {city}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div style={{ flex: 1, padding: "40px", overflowY: "auto" }}>
+        <h2 style={{ marginBottom: "5px" }}>
+          {selectedCity} <span style={{ fontWeight: "lighter", color: "#6c757d" }}>
+            ({isWeekend ? "Weekends" : "Weekdays"})
+          </span>
+        </h2>
+        <p style={{ color: "#6c757d", marginTop: 0, marginBottom: "30px" }}>
+          Analysis of average rental prices based on distance from the city center.
+        </p>
+
+        <PriceDistanceLine key={fileName} fileName={fileName} />
+      </div>
     </div>
   );
 };
 
-export default PriceDistanceScatter;
+export default Dashboard;
