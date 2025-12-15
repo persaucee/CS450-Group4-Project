@@ -265,10 +265,8 @@ const Dashboard = () => {
      
       <div style={headerStyle}>
         <div>
-           <h2 style={{ margin: "0 0 5px 0", color: "#343a40" }}>AirBnb Prices</h2>
-           <p style={{ margin: 0, color: "#6c757d" }}>
-             Analyzing price trends vs distance
-           </p>
+           <h3 style={{ margin: "0 0 5px 0", color: "#000000ff" }}>Average Price vs. Distance from City Center</h3>
+           
         </div>
 
         <div style={controlsStyle}>
