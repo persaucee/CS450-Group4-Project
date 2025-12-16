@@ -7,30 +7,54 @@
 import React, { Component } from 'react';
 import * as d3 from 'd3';
 
-// All CSV files we want to load from the data folder.
-// If you add new CSVs, put their file names into this list.
-const CSV_FILES = [
-  "amsterdam_weekdays.csv",
-  "amsterdam_weekends.csv",
-  "athens_weekdays.csv",
-  "athens_weekends.csv",
-  "barcelona_weekdays.csv",
-  "barcelona_weekends.csv",
-  "berlin_weekdays.csv",
-  "berlin_weekends.csv",
-  "budapest_weekdays.csv",
-  "budapest_weekends.csv",
-  "lisbon_weekdays.csv",
-  "lisbon_weekends.csv",
-  "london_weekdays.csv",
-  "london_weekends.csv",
-  "paris_weekdays.csv",
-  "paris_weekends.csv",
-  "rome_weekdays.csv",
-  "rome_weekends.csv",
-  "vienna_weekdays.csv",
-  "vienna_weekends.csv",
-];
+// Import world.json directly from src/data
+import worldJson from '../data/world.json';
+
+// Import all CSV files from src/data
+import amsterdamWeekdays from '../data/amsterdam_weekdays.csv';
+import amsterdamWeekends from '../data/amsterdam_weekends.csv';
+import athensWeekdays from '../data/athens_weekdays.csv';
+import athensWeekends from '../data/athens_weekends.csv';
+import barcelonaWeekdays from '../data/barcelona_weekdays.csv';
+import barcelonaWeekends from '../data/barcelona_weekends.csv';
+import berlinWeekdays from '../data/berlin_weekdays.csv';
+import berlinWeekends from '../data/berlin_weekends.csv';
+import budapestWeekdays from '../data/budapest_weekdays.csv';
+import budapestWeekends from '../data/budapest_weekends.csv';
+import lisbonWeekdays from '../data/lisbon_weekdays.csv';
+import lisbonWeekends from '../data/lisbon_weekends.csv';
+import londonWeekdays from '../data/london_weekdays.csv';
+import londonWeekends from '../data/london_weekends.csv';
+import parisWeekdays from '../data/paris_weekdays.csv';
+import parisWeekends from '../data/paris_weekends.csv';
+import romeWeekdays from '../data/rome_weekdays.csv';
+import romeWeekends from '../data/rome_weekends.csv';
+import viennaWeekdays from '../data/vienna_weekdays.csv';
+import viennaWeekends from '../data/vienna_weekends.csv';
+
+// Map of CSV file names to their imported URLs
+const CSV_FILES = {
+  "amsterdam_weekdays.csv": amsterdamWeekdays,
+  "amsterdam_weekends.csv": amsterdamWeekends,
+  "athens_weekdays.csv": athensWeekdays,
+  "athens_weekends.csv": athensWeekends,
+  "barcelona_weekdays.csv": barcelonaWeekdays,
+  "barcelona_weekends.csv": barcelonaWeekends,
+  "berlin_weekdays.csv": berlinWeekdays,
+  "berlin_weekends.csv": berlinWeekends,
+  "budapest_weekdays.csv": budapestWeekdays,
+  "budapest_weekends.csv": budapestWeekends,
+  "lisbon_weekdays.csv": lisbonWeekdays,
+  "lisbon_weekends.csv": lisbonWeekends,
+  "london_weekdays.csv": londonWeekdays,
+  "london_weekends.csv": londonWeekends,
+  "paris_weekdays.csv": parisWeekdays,
+  "paris_weekends.csv": parisWeekends,
+  "rome_weekdays.csv": romeWeekdays,
+  "rome_weekends.csv": romeWeekends,
+  "vienna_weekdays.csv": viennaWeekdays,
+  "vienna_weekends.csv": viennaWeekends,
+};
 
 // Convert "amsterdam_weekdays.csv" -> "Amsterdam"
 function fileNameToCountry(fileName) {
@@ -178,15 +202,15 @@ class GeovisFilter extends Component {
         const value = d.properties.metricValue || 0;
         tooltip
           .style("opacity", 1)
-          .style("left", (event.pageX + 10) + "px")
-          .style("top", (event.pageY - 10) + "px")
+          .style("left", (event.clientX + 15) + "px")
+          .style("top", (event.clientY + 15) + "px")
           .html(`${d.properties.name}${cityName ? ` (${cityName})` : ''}<br/>${metricConfig.label}: ${metricConfig.format(value)}`);
       })
       .on("mousemove", function(event) {
         const tooltip = d3.select("#map-tooltip");
         tooltip
-          .style("left", (event.pageX + 10) + "px")
-          .style("top", (event.pageY - 10) + "px");
+          .style("left", (event.clientX + 15) + "px")
+          .style("top", (event.clientY + 15) + "px");
       })
       .on("mouseout", function() {
         d3.select(this).attr("stroke-width", 1);
@@ -228,18 +252,8 @@ class GeovisFilter extends Component {
   async loadAllData() {
     const allRows = [];
 
-    // Load world.json
-    let worldData;
-    try {
-      worldData = await d3.json("./data/world.json");
-    } catch (e) {
-      try {
-        worldData = await d3.json("./src/data/world.json");
-      } catch (e2) {
-        console.error("Failed to load world.json", e2);
-        return;
-      }
-    }
+    // Use imported world.json from src/data
+    let worldData = JSON.parse(JSON.stringify(worldJson)); // Deep clone to avoid mutating import
 
     // Filter to only keep countries that exist in cityToCountryMap
     const countryNames = Object.values(cityToCountryMap);
@@ -247,19 +261,10 @@ class GeovisFilter extends Component {
       countryNames.includes(feature.properties.name)
     );
 
-    for (const file of CSV_FILES) {
+    // Load all CSV files from src/data (using imported URLs)
+    for (const [file, url] of Object.entries(CSV_FILES)) {
       try {
-        // Try public/data/ first (for production), then src/data/ (for development)
-        let url = `./data/${file}`;
-        let rows;
-        
-        try {
-          rows = await d3.csv(url);
-        } catch (e) {
-          // Fallback to src/data/ if ./data/ doesn't work
-          url = `./src/data/${file}`;
-          rows = await d3.csv(url);
-        }
+        const rows = await d3.csv(url);
 
         const country = fileNameToCountry(file);
         const augmentedRows = rows.map((row) => {
@@ -472,7 +477,7 @@ class GeovisFilter extends Component {
             <div 
               id="map-tooltip"
               style={{
-                position: "absolute",
+                position: "fixed",
                 padding: "8px 12px",
                 background: "rgba(0, 0, 0, 0.8)",
                 color: "white",
