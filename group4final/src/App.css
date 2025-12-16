@@ -1,0 +1,74 @@
+.dashboard-container {
+  font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  background-color: #f4f6f8;
+  min-height: 100vh;
+  padding: 20px;
+  box-sizing: border-box;
+}
+
+.dashboard-header {
+  margin-bottom: 20px;
+  background-color: white;
+  padding: 15px 25px;
+  border-radius: 8px;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+}
+
+.dashboard-title {
+  margin: 0;
+  color: #2c3e50;
+  font-size: 24px;
+}
+
+.dashboard-subtitle {
+  color: #6c757d;
+  font-size: 14px;
+  margin-top: 5px;
+}
+
+/* 2x2 Grid Layout */
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr; /* Strictly 2 columns */
+  gap: 20px;
+  padding-bottom: 40px;
+}
+
+/* Card Styling */
+.dashboard-card {
+  background-color: white;
+  padding: 15px;               /* Reduced padding slightly (was 20px) */
+  border-radius: 10px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+  
+  /* CHANGE THIS: Controls the height */
+  min-height: 350px;           /* Was 500px - makes them start smaller */
+  max-height: 450px;           /* Optional: Stops them from getting too huge */
+  
+  overflow: auto;              /* Scrollbars appear if chart is taller than 450px */
+  display: flex;
+  flex-direction: column;
+}
+
+.card-header {
+  margin-bottom: 15px;
+  font-size: 18px;
+  font-weight: bold;
+  color: #444;
+  border-bottom: 1px solid #eee;
+  padding-bottom: 10px;
+}
+
+.card-body {
+  flex: 1;
+  /* Ensures charts fill the remaining space */
+  display: flex; 
+  flex-direction: column;
+}
+
+/* Responsive adjustments (Optional: stacks to 1 column on small screens) */
+@media (max-width: 1000px) {
+  .dashboard-grid {
+    grid-template-columns: 1fr;
+  }
+}
