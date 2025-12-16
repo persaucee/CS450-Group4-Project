@@ -98,12 +98,12 @@ const BarChart = () => {
     const averages = calculateAverages();
 
     const margin = { top: 60, right: 30, bottom: 80, left: 80 };
-    const width = 800 - margin.left - margin.right;
-    const height = 500 - margin.top - margin.bottom;
+    const width = 900 - margin.left - margin.right;
+    const height = 600 - margin.top - margin.bottom;
     d3.select(svgRef.current).selectAll('*').remove();
 
     const svg = d3.select(svgRef.current)
-      .attr('width', width + margin.left + margin.right).attr('height', height + margin.top + margin.bottom)
+      .attr('width', width + margin.left + margin.right).attr('height', height + margin.top + margin.bottom)//.style('min-width', (width + margin.left + margin.right) + 'px')
       .append('g').attr('transform', `translate(${margin.left},${margin.top})`);
 
     const tooltip = d3.select('body').selectAll('.airbnb-tooltip').data([0]).join('div')
@@ -266,9 +266,9 @@ const BarChart = () => {
   }, [data, loading]);
 
   return (
-    <div style={{ padding: '20px', display: 'flex', justifyContent: 'center' }}>
-      <svg ref={svgRef}></svg>
-    </div>
+    <div style={{ padding: '20px', justifyContent: 'center' }}>
+        <svg ref={svgRef}></svg>
+      </div>
   );
 };
 
