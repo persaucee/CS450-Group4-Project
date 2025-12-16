@@ -1,12 +1,9 @@
-
-
-import "./App.css"; // <--- Import the CSS file here
+import "./App.css";
 import BarChart from "./charts/bar_chart";
 import GeovisFilter from "./charts/geovis_filter";
 import PriceDistanceScatter from "./charts/PriceDistanceScatter";
 import ValueMatrix from "./charts/ValueMatrix";
 const MainDashboard = () => {
-  // --- STYLES ---
   const styles = {
     container: {
       fontFamily: "'Segoe UI', Roboto, Helvetica, Arial, sans-serif",
@@ -33,7 +30,7 @@ const MainDashboard = () => {
       marginTop: "5px"
     },
     
-    // --- 2x2 GRID LAYOUT ---
+
     grid: {
       display: "grid",
       gridTemplateColumns: "1fr 1fr",
@@ -41,7 +38,7 @@ const MainDashboard = () => {
       paddingBottom: "40px"
     },
     
-    // --- CARD STYLES ---
+
     card: {
       backgroundColor: "white",
       padding: "20px",
@@ -88,7 +85,6 @@ const MainDashboard = () => {
         <div style={styles.card}>
           <div style={styles.cardHeader}>Price Trends vs Distance</div>
           <div style={{flex: 1}}>
-            {/* Charts manage their own data now */}
             <PriceDistanceScatter />
           </div>
         </div>
