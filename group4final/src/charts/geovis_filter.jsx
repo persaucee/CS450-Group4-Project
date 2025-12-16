@@ -110,19 +110,29 @@ class GeovisFilter extends Component {
 
     d3.select("#map").selectAll("*").remove();
 
+    // Use viewBox for responsive SVG - larger view for better visibility
+    const viewBoxWidth = 700;
+    const viewBoxHeight = 380;
+
     const mysvg = d3.select("#map")
       .selectAll("svg")
       .data([null])
       .join("svg")
       .attr("width", "100%")
-      .attr("height", 660)
-      .attr("viewBox", "0 0 1230 660")
+      .attr("height", "100%")
+      .attr("viewBox", `0 0 ${viewBoxWidth} ${viewBoxHeight}`)
       .attr("preserveAspectRatio", "xMidYMid meet");
 
     const myg = mysvg.selectAll(".myg")
       .data([null])
       .join("g")
       .attr("class", "myg");
+
+    // Set initial zoom level to 1.3x for bigger default view
+    const initialScale = 1.3;
+    const initialTransform = d3.zoomIdentity
+      .translate(viewBoxWidth * (1 - initialScale) / 2, viewBoxHeight * (1 - initialScale) / 2)
+      .scale(initialScale);
 
     const myzoom = d3.zoom()
       .scaleExtent([1, 5])
@@ -131,28 +141,24 @@ class GeovisFilter extends Component {
       });
 
     mysvg.call(myzoom);
+    mysvg.call(myzoom.transform, initialTransform);
 
     const myprojection = d3.geoEqualEarth()
-      .fitSize([1230, 660], world);
+      .fitSize([viewBoxWidth, viewBoxHeight - 60], world);
     const pathGenerator = d3.geoPath().projection(myprojection);
 
-    // Calculate domain based on metric type
-    const allValues = world.features.map(d => d.properties.metricValue || 0).filter(v => v > 0);
-    const maxValue = d3.max(allValues) || 1;
-    const minValue = d3.min(allValues) || 0;
-
-    
-    // Set appropriate min domain based on metric
+    // Set color scale domain based on metric type
+    // Use fixed ranges to match legend values
     let minDomain, maxDomain;
     if (selectedMetric === 'cost') {
-      minDomain = minValue;
-      maxDomain = Math.max(maxValue, minDomain);
+      minDomain = 100;
+      maxDomain = 300;
     } else if (selectedMetric === 'family') {
       minDomain = 0;
       maxDomain = 100;
     } else { // dist
-      minDomain = minValue;
-      maxDomain = Math.max(maxValue, minDomain);
+      minDomain = 1;
+      maxDomain = 5;
     }
     
     const colorScale = d3.scaleSequential()
@@ -193,31 +199,45 @@ class GeovisFilter extends Component {
         d3.select("#map-tooltip").style("opacity", 0);
       });
 
-    // Create legend with 6 parts
-    const legendData = d3.ticks(minDomain, maxDomain, 6);
+    // Create legend with 5 blocks - positioned at bottom right
+    // Use custom ranges for cost and distance metrics
+    let legendData;
+    if (selectedMetric === 'cost') {
+      legendData = [100, 150, 200, 250, 300];
+    } else if (selectedMetric === 'dist') {
+      legendData = [1, 2, 3, 4, 5];
+    } else {
+      legendData = d3.ticks(minDomain, maxDomain, 5);
+    }
+    const blockWidth = 35;
+    const blockHeight = 18;
+    const legendX = viewBoxWidth - (legendData.length * blockWidth) - 20;
+    const legendY = viewBoxHeight - 45;
+
     mysvg.selectAll(".legend-rect")
       .data(legendData)
       .join("rect")
       .attr("class", "legend-rect")
-      .attr("x", (d, i) => 20 + i * 40)
-      .attr("y", 30)
-      .attr("width", 40)
-      .attr("height", 20)
+      .attr("x", (d, i) => legendX + i * blockWidth)
+      .attr("y", legendY)
+      .attr("width", blockWidth)
+      .attr("height", blockHeight)
       .attr("fill", d => colorScale(d))
-      .attr("stroke", "grey");
+      .attr("stroke", "#666");
 
     mysvg.selectAll(".legend-text")
       .data(legendData)
       .join("text")
       .attr("class", "legend-text")
-      .attr("x", (d, i) => 40 + i * 40)
-      .attr("fill", "black")
-      .attr("y", 25)
+      .attr("x", (d, i) => legendX + i * blockWidth + blockWidth / 2)
+      .attr("fill", "#333")
+      .attr("y", legendY - 5)
+      .attr("font-size", "10px")
       .text(d => {
         if (selectedMetric === 'cost') {
           return `$${Math.round(d)}`;
         } else if (selectedMetric === 'family') {
-          return `${Math.round(d)}`;
+          return `${Math.round(d)}%`;
         } else { // dist
           return `${d.toFixed(1)}`;
         }
@@ -228,17 +248,13 @@ class GeovisFilter extends Component {
   async loadAllData() {
     const allRows = [];
 
-    // Load world.json
+    // Load world.json from public/data folder (served at /data/ in React)
     let worldData;
     try {
-      worldData = await d3.json("./data/world.json");
+      worldData = await d3.json(process.env.PUBLIC_URL + "/data/world.json");
     } catch (e) {
-      try {
-        worldData = await d3.json("./src/data/world.json");
-      } catch (e2) {
-        console.error("Failed to load world.json", e2);
-        return;
-      }
+      console.error("Failed to load world.json", e);
+      return;
     }
 
     // Filter to only keep countries that exist in cityToCountryMap
@@ -249,18 +265,9 @@ class GeovisFilter extends Component {
 
     for (const file of CSV_FILES) {
       try {
-        // Try public/data/ first (for production), then src/data/ (for development)
-        let url = `../../public/data/${file}`;
-        let rows;
-        
-        try {
-          rows = await d3.csv(url);
-        } catch (e) {
-          console.log("GRRRRRRRRRR");
-          // Fallback to src/data/ if ./data/ doesn't work
-          url = `./src/data/${file}`;
-          rows = await d3.csv(url);
-        }
+        // Load from public/data folder (served at /data/ in React)
+        const url = process.env.PUBLIC_URL + `/data/${file}`;
+        const rows = await d3.csv(url);
 
         const country = fileNameToCountry(file);
         const augmentedRows = rows.map((row) => {
@@ -413,110 +420,114 @@ class GeovisFilter extends Component {
     const metricConfig = METRICS[this.state.selectedMetric];
     
     return (
-      <div className="container" style={{ marginLeft: "20px", marginRight: "20px" }}>
-        <h1>Airbnb Visualization</h1>
-        <div style={{ marginBottom: "20px", display: "flex", gap: "20px", flexWrap: "wrap" }}>
-          <div>
-            <label htmlFor="metric-select" style={{ marginRight: "10px", fontSize: "16px", fontWeight: "bold" }}>
-              Select Metric:
+      <div className="geovis-container" style={{ width: "100%", height: "100%" }}>
+        {/* Controls Row */}
+        <div style={{ 
+          marginBottom: "10px", 
+          display: "flex", 
+          gap: "15px", 
+          flexWrap: "wrap",
+          alignItems: "center"
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "5px" }}>
+            <label htmlFor="metric-select" style={{ fontSize: "12px", fontWeight: "bold" }}>
+              Metric:
             </label>
             <select
               id="metric-select"
               value={this.state.selectedMetric}
               onChange={this.handleMetricChange}
               style={{
-                padding: "8px 12px",
-                fontSize: "16px",
+                padding: "4px 8px",
+                fontSize: "12px",
                 borderRadius: "4px",
                 border: "1px solid #ccc",
-                cursor: "pointer",
-                minWidth: "250px"
+                cursor: "pointer"
               }}
             >
               {Object.keys(METRICS).map(key => (
                 <option key={key} value={key}>
-                  {METRICS[key].label} - {METRICS[key].description}
+                  {METRICS[key].label}
                 </option>
               ))}
             </select>
           </div>
-          <div>
-            <label htmlFor="sort-select" style={{ marginRight: "10px", fontSize: "16px", fontWeight: "bold" }}>
-              Sort Order:
+          <div style={{ display: "flex", alignItems: "center", gap: "5px" }}>
+            <label htmlFor="sort-select" style={{ fontSize: "12px", fontWeight: "bold" }}>
+              Sort:
             </label>
             <select
               id="sort-select"
               value={this.state.sortOrder}
               onChange={this.handleSortOrderChange}
               style={{
-                padding: "8px 12px",
-                fontSize: "16px",
+                padding: "4px 8px",
+                fontSize: "12px",
                 borderRadius: "4px",
                 border: "1px solid #ccc",
-                cursor: "pointer",
-                minWidth: "150px"
+                cursor: "pointer"
               }}
             >
-              <option value="asc">Ascending (Low to High)</option>
-              <option value="desc">Descending (High to Low)</option>
+              <option value="asc">Low → High</option>
+              <option value="desc">High → Low</option>
             </select>
           </div>
         </div>
-        <div style={{ display: "flex", flexDirection: "row", alignItems: "flex-start", gap: "20px", marginLeft: "20px", marginRight: "20px", boxSizing: "border-box" }}>
-          <div className="map-container" style={{ 
-            flex: "2 0 0",
-            height: "660px",
-            position: "relative",
-            minWidth: 0
-          }}>
-            <div id="map" style={{ width: "100%", height: "660px" }}></div>
+
+        {/* Sorted List - Horizontal at top */}
+        <div style={{ 
+          display: "flex",
+          gap: "8px",
+          overflowX: "auto",
+          padding: "8px 0",
+          marginBottom: "10px",
+          borderBottom: "1px solid #eee"
+        }}>
+          {sortedList.map((item, index) => (
             <div 
-              id="map-tooltip"
-              style={{
-                position: "absolute",
-                padding: "8px 12px",
-                background: "rgba(0, 0, 0, 0.8)",
-                color: "white",
+              key={item.city} 
+              style={{ 
+                flex: "0 0 auto",
+                padding: "6px 10px",
+                backgroundColor: index === 0 ? "#4CAF50" : index === 1 ? "#8BC34A" : index === 2 ? "#CDDC39" : "#f5f5f5",
+                color: index < 2 ? "white" : "#333",
                 borderRadius: "4px",
-                pointerEvents: "none",
-                opacity: 0,
-                fontSize: "14px",
-                zIndex: 1000
+                fontSize: "11px",
+                whiteSpace: "nowrap",
+                boxShadow: "0 1px 3px rgba(0,0,0,0.1)"
               }}
-            ></div>
-          </div>
-          <div style={{ 
-            flex: "1 0 0",
-            height: "660px",
-            border: "1px solid #ccc", 
-            borderRadius: "4px",
-            padding: "15px",
-            backgroundColor: "#f9f9f9",
-            overflowY: "auto",
-            minWidth: 0
-          }}>
-            <h2 style={{ marginTop: "0", marginBottom: "15px", fontSize: "18px" }}>
-              Sorted List ({metricConfig.label})
-            </h2>
-            <ol style={{ paddingLeft: "20px", margin: "0" }}>
-              {sortedList.map((item, index) => (
-                <li 
-                  key={item.city} 
-                  style={{ 
-                    marginBottom: "10px",
-                    padding: "8px",
-                    backgroundColor: index < 3 ? "#e3f2fd" : "transparent",
-                    borderRadius: "4px"
-                  }}
-                >
-                  <strong>{item.city}</strong> ({item.country})
-                  <div style={{ fontSize: "14px", color: "#666", marginTop: "4px" }}>
-                    {metricConfig.label}: {metricConfig.format(item.value)}
-                  </div>
-                </li>
-              ))}
-            </ol>
-          </div>
+            >
+              <strong>#{index + 1} {item.city}</strong>
+              <span style={{ marginLeft: "5px", opacity: 0.9 }}>
+                {metricConfig.format(item.value)}
+              </span>
+            </div>
+          ))}
+        </div>
+
+        {/* Map - Full Width */}
+        <div className="map-container" style={{ 
+          width: "100%",
+          height: "calc(100% - 100px)",
+          minHeight: "350px",
+          position: "relative"
+        }}>
+          <div id="map" style={{ width: "100%", height: "100%" }}></div>
+          <div 
+            id="map-tooltip"
+            style={{
+              position: "fixed",
+              padding: "8px 12px",
+              background: "rgba(0, 0, 0, 0.85)",
+              color: "white",
+              borderRadius: "4px",
+              pointerEvents: "none",
+              opacity: 0,
+              fontSize: "12px",
+              zIndex: 1000,
+              maxWidth: "200px"
+            }}
+          ></div>
         </div>
       </div>
     );
