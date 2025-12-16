@@ -147,23 +147,18 @@ class GeovisFilter extends Component {
       .fitSize([viewBoxWidth, viewBoxHeight - 60], world);
     const pathGenerator = d3.geoPath().projection(myprojection);
 
-    // Calculate domain based on metric type
-    const allValues = world.features.map(d => d.properties.metricValue || 0).filter(v => v > 0);
-    const maxValue = d3.max(allValues) || 1;
-    const minValue = d3.min(allValues) || 0;
-
-    
-    // Set appropriate min domain based on metric
+    // Set color scale domain based on metric type
+    // Use fixed ranges to match legend values
     let minDomain, maxDomain;
     if (selectedMetric === 'cost') {
-      minDomain = minValue;
-      maxDomain = Math.max(maxValue, minDomain);
+      minDomain = 100;
+      maxDomain = 300;
     } else if (selectedMetric === 'family') {
       minDomain = 0;
       maxDomain = 100;
     } else { // dist
-      minDomain = minValue;
-      maxDomain = Math.max(maxValue, minDomain);
+      minDomain = 1;
+      maxDomain = 5;
     }
     
     const colorScale = d3.scaleSequential()
@@ -205,7 +200,15 @@ class GeovisFilter extends Component {
       });
 
     // Create legend with 5 blocks - positioned at bottom right
-    const legendData = d3.ticks(minDomain, maxDomain, 5);
+    // Use custom ranges for cost and distance metrics
+    let legendData;
+    if (selectedMetric === 'cost') {
+      legendData = [100, 150, 200, 250, 300];
+    } else if (selectedMetric === 'dist') {
+      legendData = [1, 2, 3, 4, 5];
+    } else {
+      legendData = d3.ticks(minDomain, maxDomain, 5);
+    }
     const blockWidth = 35;
     const blockHeight = 18;
     const legendX = viewBoxWidth - (legendData.length * blockWidth) - 20;
