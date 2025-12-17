@@ -67,8 +67,10 @@ const ValueMatrix = () => {
     if (data.length === 0) return;
 
     const renderChart = () => {
-      // Sample data for display (40% random sample)
-      const displayData = data.filter(() => Math.random() < 0.4);
+      // Dynamic sampling based on data size
+      const targetPoints = 1500;
+      const samplingRate = Math.min(1, targetPoints / data.length);
+      const displayData = data.filter(() => Math.random() < samplingRate);
       
       const margin = { top: 60, right: 200, bottom: 80, left: 80 };
       const width = 900 - margin.left - margin.right;
