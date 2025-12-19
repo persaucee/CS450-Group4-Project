@@ -5,6 +5,7 @@
 
 ## 👋 Overview
 For this project, we focus on the relation of Airbnb Prices in European Cities dataset to understand how location, host characteristics, room type, and travel preferences influence accommodation prices and travelers preference.
+LINK TO WEBSITE:  https://persaucee.github.io/CS450-Group4-Project/
 
 Our goal is to create clear, useful visualizations that help travelers decide where to stay, what affects prices, and how far their money can go across different cities in Europe.
 
